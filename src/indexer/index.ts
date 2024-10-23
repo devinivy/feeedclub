@@ -16,6 +16,17 @@ import {
 } from '../lexicon/types/club/feeed/generator'
 import { DbSchemaType } from '../db/schema'
 import { indexerLogger } from '../logger'
+import {
+  addActorsForFeed,
+  addItemToFeed,
+  addTagsForFeed,
+  clearActorsByFeedId,
+  clearTagsByFeedId,
+  createFeed,
+  getCursor,
+  getFeedByUri,
+  getMatchingFeeds,
+} from './model'
 
 // @TODO manage cursor
 
@@ -48,56 +59,33 @@ export class Indexer {
         evt.commit.collection,
         evt.commit.rkey,
       )
-      let feed = await this.db.db
-        .insertInto('feed_detail')
-        .values({ uri: feedUri.toString() })
-        .onConflict((oc) => oc.doNothing())
-        .returningAll()
-        .executeTakeFirst()
+      let feed = await createFeed(this.db, {
+        uri: feedUri.toString(),
+      })
       if (!feed) {
         // indicates feed is already known, i.e. being updated.
-        feed = await this.db.db
-          .selectFrom('feed_detail')
-          .selectAll()
-          .where('uri', '=', feedUri.toString())
-          .executeTakeFirst()
+        feed = await getFeedByUri(this.db, {
+          uri: feedUri.toString(),
+        })
         if (!feed) return // unexpected but nbd
-        await this.db.db
-          .deleteFrom('feed_tag')
-          .where('id', '=', feed.id)
-          .execute()
-        await this.db.db
-          .deleteFrom('feed_actor')
-          .where('id', '=', feed.id)
-          .execute()
+        await clearTagsByFeedId(this.db, { id: feed.id })
+        await clearActorsByFeedId(this.db, { id: feed.id })
       }
       const extension = record['$club.feeed.generator']
       if (!isExtension(extension) || !validateExtension(extension).success) {
         return
       }
       if (extension.tags?.length) {
-        await this.db.db
-          .insertInto('feed_tag')
-          .values(
-            extension.tags.map((tag) => ({
-              id: feed.id,
-              tag: tag,
-            })),
-          )
-          .onConflict((oc) => oc.doNothing())
-          .execute()
+        await addTagsForFeed(this.db, {
+          id: feed.id,
+          tags: extension.tags,
+        })
       }
       if (extension.actors?.length) {
-        await this.db.db
-          .insertInto('feed_actor')
-          .values(
-            extension.actors.map((did) => ({
-              id: feed.id,
-              did: did,
-            })),
-          )
-          .onConflict((oc) => oc.doNothing())
-          .execute()
+        await addActorsForFeed(this.db, {
+          id: feed.id,
+          dids: extension.actors,
+        })
       }
     } catch (err) {
       indexerLogger.warn({ err, evt }, 'processing error')
@@ -125,23 +113,17 @@ export class Indexer {
       ) {
         return
       }
-      const feed = await this.db.db
-        .selectFrom('feed_detail')
-        .selectAll()
-        .where('uri', '=', feedUri.toString())
-        .executeTakeFirst()
+      const feed = await getFeedByUri(this.db, {
+        uri: feedUri.toString(),
+      })
       if (!feed) {
         return
       }
-      await this.db.db
-        .insertInto('feed_item')
-        .values({
-          feed: feed.id,
-          post: postUri.toString(),
-          sort: evt.time_us,
-        })
-        .onConflict((oc) => oc.doNothing())
-        .execute()
+      await addItemToFeed(this.db, {
+        feed: feed.id,
+        post: postUri.toString(),
+        sort: evt.time_us,
+      })
     } catch (err) {
       indexerLogger.warn({ err, evt }, 'processing error')
     }
@@ -152,43 +134,21 @@ export class Indexer {
       const record = evt.commit.record
       const tags = record.tags
       if (!tags?.length) return
-      const feeds = await this.db.db
-        .selectFrom('feed_detail')
-        .selectAll()
-        .where(({ exists }) =>
-          exists((inner) =>
-            inner
-              .selectFrom('feed_tag')
-              .selectAll()
-              .whereRef('feed_tag.id', '=', 'feed_detail.id')
-              .where('feed_tag.tag', 'in', tags),
-          ),
-        )
-        .where(({ exists }) =>
-          exists((inner) =>
-            inner
-              .selectFrom('feed_actor')
-              .selectAll()
-              .whereRef('feed_actor.id', '=', 'feed_detail.id')
-              .where('feed_actor.did', '=', evt.did),
-          ),
-        )
-        .execute()
+      const feeds = await getMatchingFeeds(this.db, {
+        tags,
+        actor: evt.did,
+      })
       const postUri = AtUri.make(
         evt.did,
         evt.commit.collection,
         evt.commit.rkey,
       )
       for (const feed of feeds) {
-        await this.db.db
-          .insertInto('feed_item')
-          .values({
-            feed: feed.id,
-            post: postUri.toString(),
-            sort: evt.time_us,
-          })
-          .onConflict((oc) => oc.doNothing())
-          .execute()
+        await addItemToFeed(this.db, {
+          feed: feed.id,
+          post: postUri.toString(),
+          sort: evt.time_us,
+        })
       }
     } catch (err) {
       indexerLogger.warn({ err, evt }, 'processing error')
@@ -197,10 +157,7 @@ export class Indexer {
 
   async start() {
     const skyware = await import('@skyware/jetstream')
-    const { cursor } = await this.db.db
-      .selectFrom('cursor')
-      .selectAll()
-      .executeTakeFirstOrThrow()
+    const { cursor } = await getCursor(this.db)
     assert(!this.jetstream, 'jetstream already setup')
     this.jetstream = new skyware.Jetstream({
       endpoint: this.endpoint,
