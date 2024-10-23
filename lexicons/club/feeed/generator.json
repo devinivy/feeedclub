@@ -1,0 +1,24 @@
+{
+  "lexicon": 1,
+  "id": "club.feeed.generator",
+  "defs": {
+    "main": {
+      "type": "object",
+      "required": [],
+      "properties": {
+        "actors": {
+          "type": "array",
+          "items": { "type": "string", "format": "did" }
+        },
+        "handleSuffixes": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

@@ -125,11 +125,13 @@ export class Server {
   xrpc: XrpcServer
   com: ComNS
   app: AppNS
+  club: ClubNS
 
   constructor(options?: XrpcOptions) {
     this.xrpc = createXrpcServer(schemas, options)
     this.com = new ComNS(this)
     this.app = new AppNS(this)
+    this.club = new ClubNS(this)
   }
 }
 
@@ -1164,6 +1166,24 @@ export class AppBskyLabelerNS {
 }
 
 export class AppBskyRichtextNS {
+  _server: Server
+
+  constructor(server: Server) {
+    this._server = server
+  }
+}
+
+export class ClubNS {
+  _server: Server
+  feeed: ClubFeeedNS
+
+  constructor(server: Server) {
+    this._server = server
+    this.feeed = new ClubFeeedNS(server)
+  }
+}
+
+export class ClubFeeedNS {
   _server: Server
 
   constructor(server: Server) {

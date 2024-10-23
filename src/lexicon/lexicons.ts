@@ -6642,6 +6642,61 @@ export const schemaDict = {
       },
     },
   },
+  ClubFeeedGenerator: {
+    lexicon: 1,
+    id: 'club.feeed.generator',
+    defs: {
+      main: {
+        type: 'object',
+        required: [],
+        properties: {
+          actors: {
+            type: 'array',
+            items: {
+              type: 'string',
+              format: 'did',
+            },
+          },
+          handleSuffixes: {
+            type: 'array',
+            items: {
+              type: 'string',
+            },
+          },
+          tags: {
+            type: 'array',
+            items: {
+              type: 'string',
+            },
+          },
+        },
+      },
+    },
+  },
+  ClubFeeedSubmission: {
+    lexicon: 1,
+    id: 'club.feeed.submission',
+    defs: {
+      main: {
+        type: 'record',
+        key: 'tid',
+        record: {
+          type: 'object',
+          required: ['feed', 'post'],
+          properties: {
+            feed: {
+              type: 'string',
+              format: 'at-uri',
+            },
+            post: {
+              type: 'string',
+              format: 'at-uri',
+            },
+          },
+        },
+      },
+    },
+  },
 }
 export const schemas: LexiconDoc[] = Object.values(schemaDict) as LexiconDoc[]
 export const lexicons: Lexicons = new Lexicons(schemas)
@@ -6760,4 +6815,6 @@ export const ids = {
   AppBskyLabelerGetServices: 'app.bsky.labeler.getServices',
   AppBskyLabelerService: 'app.bsky.labeler.service',
   AppBskyRichtextFacet: 'app.bsky.richtext.facet',
+  ClubFeeedGenerator: 'club.feeed.generator',
+  ClubFeeedSubmission: 'club.feeed.submission',
 }

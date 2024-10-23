@@ -1,0 +1,18 @@
+{
+  "lexicon": 1,
+  "id": "club.feeed.submission",
+  "defs": {
+    "main": {
+      "type": "record",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["feed", "post"],
+        "properties": {
+          "feed": { "type": "string", "format": "at-uri" },
+          "post": { "type": "string", "format": "at-uri" }
+        }
+      }
+    }
+  }
+}
