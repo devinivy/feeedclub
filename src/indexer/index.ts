@@ -2,8 +2,12 @@ import assert from 'node:assert'
 import { once } from 'node:events'
 import PQueue from 'p-queue'
 import WebSocket from 'ws'
-// @ts-ignore
-import type { Jetstream, CommitCreateEvent } from '@skyware/jetstream'
+import type {
+  Jetstream,
+  CommitCreateEvent,
+  CommitUpdateEvent,
+  // @ts-ignore
+} from '@skyware/jetstream'
 import { AtUri } from '@atproto/api'
 import { Database } from '../db'
 import {
@@ -28,27 +32,49 @@ export class Indexer {
     public db: Database<DbSchemaType>,
   ) {}
 
-  async feedgenHandler(evt: CommitCreateEvent<'app.bsky.feed.generator'>) {
+  async feedgenHandler(
+    evt:
+      | CommitCreateEvent<'app.bsky.feed.generator'>
+      | CommitUpdateEvent<'app.bsky.feed.generator'>,
+  ) {
     try {
       const record = evt.commit.record
-      const extension = record['$club.feeed.generator']
-      if (record.did !== this.did) return
-      if (!isExtension(extension) || !validateExtension(extension).success) {
+      if (record.did !== this.did) {
+        // ensure feedgen uses this service
         return
       }
-      const feed = await this.db.db
+      const feedUri = AtUri.make(
+        evt.did,
+        evt.commit.collection,
+        evt.commit.rkey,
+      )
+      let feed = await this.db.db
         .insertInto('feed_detail')
-        .values({
-          uri: AtUri.make(
-            evt.did,
-            evt.commit.collection,
-            evt.commit.rkey,
-          ).toString(),
-        })
+        .values({ uri: feedUri.toString() })
         .onConflict((oc) => oc.doNothing())
         .returningAll()
         .executeTakeFirst()
-      if (!feed) return
+      if (!feed) {
+        // indicates feed is already known, i.e. being updated.
+        feed = await this.db.db
+          .selectFrom('feed_detail')
+          .selectAll()
+          .where('uri', '=', feedUri.toString())
+          .executeTakeFirst()
+        if (!feed) return // unexpected but nbd
+        await this.db.db
+          .deleteFrom('feed_tag')
+          .where('id', '=', feed.id)
+          .execute()
+        await this.db.db
+          .deleteFrom('feed_actor')
+          .where('id', '=', feed.id)
+          .execute()
+      }
+      const extension = record['$club.feeed.generator']
+      if (!isExtension(extension) || !validateExtension(extension).success) {
+        return
+      }
       if (extension.tags?.length) {
         await this.db.db
           .insertInto('feed_tag')
@@ -187,6 +213,9 @@ export class Indexer {
       ws: WebSocket,
     })
     this.jetstream.onCreate('app.bsky.feed.generator', (evt) => {
+      this.queue.add(this.feedgenHandler.bind(this, evt))
+    })
+    this.jetstream.onUpdate('app.bsky.feed.generator', (evt) => {
       this.queue.add(this.feedgenHandler.bind(this, evt))
     })
     this.jetstream.onCreate('club.feeed.submission', (evt) => {
