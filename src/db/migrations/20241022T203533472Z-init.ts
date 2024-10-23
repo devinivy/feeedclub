@@ -1,9 +1,39 @@
-import { Kysely } from 'kysely'
+import { Kysely, sql } from 'kysely'
 
 export async function up(db: Kysely<unknown>): Promise<void> {
-  // Migration code
+  await db.schema
+    .createTable('feed_detail')
+    .addColumn('id', 'integer', (col) => col.primaryKey())
+    .addColumn('uri', 'text', (col) => col.notNull().unique())
+    .modifyEnd(sql`strict`)
+    .execute()
+  await db.schema
+    .createTable('feed_author')
+    .addColumn('id', 'integer', (col) => col.notNull())
+    .addColumn('did', 'text', (col) => col.notNull())
+    .addPrimaryKeyConstraint('feed_author_pkey', ['id', 'did'])
+    .modifyEnd(sql`strict`)
+    .execute()
+  await db.schema
+    .createTable('feed_tag')
+    .addColumn('id', 'integer', (col) => col.notNull())
+    .addColumn('tag', 'text', (col) => col.notNull())
+    .addPrimaryKeyConstraint('feed_tag_pkey', ['id', 'tag'])
+    .modifyEnd(sql`strict`)
+    .execute()
+  await db.schema
+    .createTable('feed_item')
+    .addColumn('feed', 'integer', (col) => col.notNull())
+    .addColumn('sort', 'integer', (col) => col.notNull())
+    .addColumn('post', 'text', (col) => col.notNull())
+    .addPrimaryKeyConstraint('feed_item_pkey', ['feed', 'sort'])
+    .modifyEnd(sql`strict`)
+    .execute()
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {
-  // Migration code
+  await db.schema.dropTable('feed_item').execute()
+  await db.schema.dropTable('feed_tag').execute()
+  await db.schema.dropTable('feed_author').execute()
+  await db.schema.dropTable('feed_detail').execute()
 }

@@ -4,8 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "ts-node ./bin/index.ts",
+    "dev": "ts-node ./bin/index.ts",
     "build": "tsc",
+    "build:docker": "docker build -f ./Dockerfile . -t feeedclub",
     "migration:create": "ts-node ./bin/migration-create.ts",
     "codegen": "lex gen-server ./src/lexicon ./lexicons/com/atproto/*/* ./lexicons/app/bsky/*/*"
   },

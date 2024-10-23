@@ -4,8 +4,6 @@ export interface FeedItem {
   post: string
 }
 
-export const tableName = 'feed_item'
-
 export type PartialDB = {
-  [tableName]: FeedItem
+  feed_item: FeedItem
 }

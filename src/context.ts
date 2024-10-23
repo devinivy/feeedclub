@@ -1,11 +1,11 @@
 import { Config } from './config'
 import { Database } from './db'
-import DbSchema from './db/schema'
+import { DbSchemaType } from './db/schema'
 import * as migrations from './db/migrations'
 
 export type AppContextOptions = {
   cfg: Config
-  db: Database<DbSchema>
+  db: Database<DbSchemaType>
 }
 
 export class AppContext {
@@ -16,7 +16,7 @@ export class AppContext {
   constructor(private opts: AppContextOptions) {}
 
   static async fromConfig(cfg: Config, overrides?: Partial<AppContextOptions>) {
-    const db = Database.sqlite<DbSchema>(cfg.db.location, migrations)
+    const db = Database.sqlite<DbSchemaType>(cfg.db.location, migrations)
     return new AppContext({ cfg, db, ...overrides })
   }
 }
