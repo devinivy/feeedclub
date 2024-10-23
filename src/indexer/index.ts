@@ -121,6 +121,54 @@ export class Indexer {
     }
   }
 
+  async postHandler(evt: CommitCreateEvent<'app.bsky.feed.post'>) {
+    try {
+      const record = evt.commit.record
+      const tags = record.tags
+      if (!tags?.length) return
+      const feeds = await this.db.db
+        .selectFrom('feed_detail')
+        .selectAll()
+        .where(({ exists }) =>
+          exists((inner) =>
+            inner
+              .selectFrom('feed_tag')
+              .selectAll()
+              .whereRef('feed_tag.id', '=', 'feed_detail.id')
+              .where('feed_tag.tag', 'in', tags),
+          ),
+        )
+        .where(({ exists }) =>
+          exists((inner) =>
+            inner
+              .selectFrom('feed_actor')
+              .selectAll()
+              .whereRef('feed_actor.id', '=', 'feed_detail.id')
+              .where('feed_actor.did', '=', evt.did),
+          ),
+        )
+        .execute()
+      const postUri = AtUri.make(
+        evt.did,
+        evt.commit.collection,
+        evt.commit.rkey,
+      )
+      for (const feed of feeds) {
+        await this.db.db
+          .insertInto('feed_item')
+          .values({
+            feed: feed.id,
+            post: postUri.toString(),
+            sort: evt.time_us,
+          })
+          .onConflict((oc) => oc.doNothing())
+          .execute()
+      }
+    } catch (err) {
+      indexerLogger.warn({ err, evt }, 'processing error')
+    }
+  }
+
   async start() {
     const skyware = await import('@skyware/jetstream')
     const { cursor } = await this.db.db
@@ -143,6 +191,9 @@ export class Indexer {
     })
     this.jetstream.onCreate('club.feeed.submission', (evt) => {
       this.queue.add(this.submissionHandler.bind(this, evt))
+    })
+    this.jetstream.onCreate('app.bsky.feed.post', (evt) => {
+      this.queue.add(this.postHandler.bind(this, evt))
     })
     this.jetstream.start()
   }

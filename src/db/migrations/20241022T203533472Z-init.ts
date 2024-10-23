@@ -11,14 +11,14 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .createTable('feed_actor')
     .addColumn('id', 'integer', (col) => col.notNull())
     .addColumn('did', 'text', (col) => col.notNull())
-    .addPrimaryKeyConstraint('feed_actor_pkey', ['id', 'did'])
+    .addPrimaryKeyConstraint('feed_actor_pkey', ['did', 'id'])
     .modifyEnd(sql`strict`)
     .execute()
   await db.schema
     .createTable('feed_tag')
     .addColumn('id', 'integer', (col) => col.notNull())
     .addColumn('tag', 'text', (col) => col.notNull())
-    .addPrimaryKeyConstraint('feed_tag_pkey', ['id', 'tag'])
+    .addPrimaryKeyConstraint('feed_tag_pkey', ['tag', 'id'])
     .modifyEnd(sql`strict`)
     .execute()
   await db.schema
