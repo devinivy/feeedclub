@@ -45,6 +45,7 @@ export class FeeedClubService {
 
   async start() {
     await this.ctx.db.migrateOrThrow()
+    await this.ctx.indexer.start()
     this.server = this.app.listen(this.ctx.cfg.service.port)
     this.terminator = createHttpTerminator({ server: this.server })
     await events.once(this.server, 'listening')
@@ -53,6 +54,7 @@ export class FeeedClubService {
   async destroy() {
     this.ctx.shutdown.abort()
     await this.terminator?.terminate()
+    await this.ctx.indexer.destroy()
     await this.ctx.db.close()
   }
 }

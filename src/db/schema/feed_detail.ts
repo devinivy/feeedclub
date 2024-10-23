@@ -5,7 +5,7 @@ export interface FeedDetail {
   uri: string
 }
 
-export interface FeedAuthor {
+export interface FeedActor {
   id: number
   did: string
 }
@@ -18,5 +18,5 @@ export interface FeedTag {
 export type PartialDB = {
   feed_detail: FeedDetail
   feed_tag: FeedTag
-  feed_author: FeedAuthor
+  feed_actor: FeedActor
 }
